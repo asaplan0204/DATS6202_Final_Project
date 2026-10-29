@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder
 
 # loading the data
 #%%
@@ -88,75 +89,80 @@ print(df_test.shape[0])
 
 # encoding categorical features
 # %%
-print("Train datatypes:\n", df_train.dtypes)
-print("\nValidation datatypes:\n", df_val.dtypes)
-print("\nTest datatypes:\n", df_test.dtypes)
-# %%
-print(df_train.head())
-# %%
-categorical_features = ["drive", "trany", "VClass", "fuelType1", "model"]
+numeric_features = ["year", "displ", "cylinders"]
 
-#one hot encoding
-# %%
-df_train = pd.get_dummies(df_train, columns=categorical_features, dtype=int)
-df_val = pd.get_dummies(df_val, columns=categorical_features, dtype=int)
-df_test = pd.get_dummies(df_test, columns=categorical_features, dtype=int)
+categorical_features = [
+    "drive", "trany", "VClass", "fuelType1", "model"
+]
 
-# %%
-df_val = df_val.reindex(columns=df_train.columns, fill_value=0)
-df_test = df_test.reindex(columns=df_train.columns, fill_value=0)
-# %%
-print(df_train.shape)
-print(df_val.shape)
-print(df_test.shape)
+#%%
+
+encoder = OneHotEncoder(
+    handle_unknown="ignore",
+    sparse_output=False
+)
+
+# Fit only on training data
+X_train_cat = encoder.fit_transform(df_train[categorical_features])
+
+# Transform validation and test data
+X_val_cat = encoder.transform(df_val[categorical_features])
+X_test_cat = encoder.transform(df_test[categorical_features])
 
 
 # splitting the features and target
 # %%
-# Training split
-X_train = df_train.drop(columns=[target])
 y_train = df_train[target]
-
-# Validation split
-X_val = df_val.drop(columns=[target])
 y_val = df_val[target]
-
-# Test split
-X_test = df_test.drop(columns=[target])
 y_test = df_test[target]
-# %%
+
+# Separate numerical features
+numeric_features = ["year", "displ", "cylinders"]
+
+X_train_num = df_train[numeric_features].to_numpy()
+X_val_num = df_val[numeric_features].to_numpy()
+X_test_num = df_test[numeric_features].to_numpy()
+
+# Combine numerical and encoded categorical features
+X_train = np.hstack([X_train_num, X_train_cat])
+X_val = np.hstack([X_val_num, X_val_cat])
+X_test = np.hstack([X_test_num, X_test_cat])
+#%%
 print("X_train:", X_train.shape, "y_train:", y_train.shape)
 print("X_val:", X_val.shape, "y_val:", y_val.shape)
 print("X_test:", X_test.shape, "y_test:", y_test.shape)
 
 # scaling the data using standardscaler
 # %%
-ss = StandardScaler()
-# %%
-# Standardize the training data
-X_train = ss.fit_transform(X_train)
+# Initialize feature scaler
+x_scaler = StandardScaler()
 
-# Standardize the validation data
-X_val = ss.transform(X_val)
+# Fit on training numerical features only
+X_train[:, :3] = x_scaler.fit_transform(X_train[:, :3])
 
-# Standardize the test data
-X_test = ss.transform(X_test)
-# %%
-# Standardize the training target
-y_train = ss.fit_transform(
+# Transform validation and test numerical features
+X_val[:, :3] = x_scaler.transform(X_val[:, :3])
+X_test[:, :3] = x_scaler.transform(X_test[:, :3])
+
+#%%
+# Initialize target scaler
+y_scaler = StandardScaler()
+
+# Fit on training target only
+y_train = y_scaler.fit_transform(
     y_train.to_numpy().reshape(-1, 1)
-).reshape(-1)
+).ravel()
 
-# Standardize the validation target
-y_val = ss.transform(
+# Transform validation and test targets
+y_val = y_scaler.transform(
     y_val.to_numpy().reshape(-1, 1)
-).reshape(-1)
+).ravel()
 
-# Standardize the test target
-y_test = ss.transform(
+y_test = y_scaler.transform(
     y_test.to_numpy().reshape(-1, 1)
-).reshape(-1)
-# %%
+).ravel()
+
+#%%
 print("Training target:")
 print("Mean:", np.mean(y_train))
 print("Standard deviation:", np.std(y_train))
@@ -168,4 +174,10 @@ print("Standard deviation:", np.std(y_val))
 print("\nTest target:")
 print("Mean:", np.mean(y_test))
 print("Standard deviation:", np.std(y_test))
+
+#%%
+print("X_train:", X_train.shape, "y_train:", y_train.shape)
+print("X_val:", X_val.shape, "y_val:", y_val.shape)
+print("X_test:", X_test.shape, "y_test:", y_test.shape)
+
 # %%
